@@ -11,46 +11,97 @@ function main() {
     const width = 600;
     const height = 600;
     const canvas = document.querySelector("#c");
-    const renderer = new THREE.WebGLRenderer({canvas});
+    const renderer = new THREE.WebGLRenderer({canvas: canvas, alpha: false, antialias: false});
     renderer.setSize(width, height);
+    renderer.setClearColor(0xFAF7F2);
 
     const fov = 75;
     const near = 0.1;
     const far = 100;
     const camera = new THREE.PerspectiveCamera(fov, width / height, near, far);
-    camera.position.z = 2;
+    camera.position.z = 1;
+    camera.position.x = 0;
+    camera.lookAt(0, 0, 0);
 
     const scene = new THREE.Scene();
 
-    const vertices = [];
-    for ( let i = 0; i < 100; i ++ ) {
-        const y = THREE.MathUtils.randFloatSpread(2);
-        const phi = THREE.MathUtils.randFloatSpread(2.0 * Math.PI);
-        const p = pointOnSphere(y, phi);
-        vertices.push(p[0], p[1], p[2]);
-    }
+    // const y = THREE.MathUtils.randFloatSpread(2);
+    // const phi = THREE.MathUtils.randFloatSpread(2.0 * Math.PI);
+    // const p = pointOnSphere(y, phi);
 
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.Float32BufferAttribute( vertices, 3 ) );
+    const vertices = new Float32Array( [
+        -1.0, -1.0,  0.0,
+        1.0, -1.0,  0.0,
+        1.0,  1.0,  0.0,
+        -1.0,  1.0,  0.0
+    ] );
+    const normals = new Float32Array( [
+        0, 0, 1,
+        0, 0, 1,
+        0, 0, 1,
+        0, 0, 1
+    ] );
+    const uv = new Float32Array( [
+        -1, -1,
+        1, -1,
+        1, 1,
+        -1, 1
+    ] );
+    const faces = new Uint32Array([
+        0, 1, 2,
+        0, 2, 3
+    ]);
 
-    const material = new THREE.PointsMaterial({color: 0x44aa88, sizeAttenuation: false, size: 3.0});  // greenish blue
+    geometry.setIndex(new THREE.BufferAttribute(faces, 1));
+    geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
+    geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
+    geometry.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
 
-    const points = new THREE.Points(geometry, material);
-    scene.add(points);
+    // const material = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
 
-    renderer.render(scene, camera);
+    const material = new THREE.ShaderMaterial({
+        vertexShader: `
+        varying vec2 v_uv;
+        void main() {
+            mat4 mv = mat4(modelViewMatrix);
+            mv[0][0] = 1.0;
+            mv[0][1] = 0.0;
+            mv[0][2] = 0.0;
+            mv[1][0] = 0.0;
+            mv[1][1] = 1.0;
+            mv[1][2] = 0.0;
+            mv[2][0] = 0.0;
+            mv[2][1] = 0.0;
+            mv[2][2] = 1.0;
+            vec4 mvPosition = mv * vec4(position, 1.0);
+            gl_Position = projectionMatrix * mvPosition;
+            v_uv = uv;
+        }`,
+        fragmentShader: `
+        varying vec2 v_uv;
+        void main() {
+            float sd = dot(v_uv, v_uv);
+            if(sd > 1.0) {
+                discard;
+            }
+            gl_FragColor = vec4( sqrt(sd), 0.5, 0.3, 1.0);
+        }`
+    });
 
-    // function render(time) {
-    //     time *= 0.001;  // convert time to seconds
+    const mesh = new THREE.Mesh( geometry, material );
 
-    //     points.rotation.y = 0.1 * time;
-    //     // points.rotation.y = time;
+    scene.add(mesh);
 
-    //     renderer.render(scene, camera);
+    function render(time) {
+        time *= 0.001;  // convert time to seconds
 
-    //     requestAnimationFrame(render);
-    // }
-    // requestAnimationFrame(render);
+        mesh.rotation.y = 0.5 * time;
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
 
 }
 
