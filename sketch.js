@@ -27,12 +27,31 @@ function pointOnSphere(y, phi) {
     let noiseScale = 3.83 * 0.5;
     let noiseMag   = 0.1;
     const m = noiseMag * (2.0 * noise(noiseScale * (x + noiseC), noiseScale * (y + noiseC), noiseScale * (z + noiseC)) - 1.0) + 1.0;
-    return [m * x, m * y, m * z];
+    return new THREE.Vector3(m * x, m * y, m * z);
+}
+
+function sgn(x) {
+    return x < 0.0 ? -1.0 : 1.0;
+}
+
+function pointAndNormalOnSphere(y, phi) {
+    const p0 = pointOnSphere(y, phi);
+    const eps = 0.001;
+    let p1 = pointOnSphere(y - sgn(y) * eps, phi);
+    let p2 = pointOnSphere(y, phi + eps);
+    p1.sub(p0);
+    p2.sub(p0);
+    p1.cross(p2);
+    p1.normalize();
+    if(p1.dot(p0) < 0.0) {
+        p1.negate();
+    }
+    return [p0, p1];
 }
 
 function main() {
-    const width = 800;
-    const height = 800;
+    const width = 900;
+    const height = 900;
     const canvas = document.querySelector("#c");
     const renderer = new THREE.WebGLRenderer({canvas: canvas, alpha: false, antialias: false});
     renderer.setSize(width, height);
@@ -49,18 +68,19 @@ function main() {
         [250,209,5]
     ];
 
-    const fov = 25;
-    const near = 0.01;
+    const fov = 100;
+    const near = 0.0075;
     const far = 100;
     const camera = new THREE.PerspectiveCamera(fov, width / height, near, far);
-    camera.position.y = -1.0;
-    camera.position.z = 0.75;
-    camera.lookAt(0, 0, 0);
+    camera.position.y = -0.8;
+    camera.position.z = 0.6;
+    camera.lookAt(0, -0.5, 0);
 
     const scene = new THREE.Scene();
 
     const pointCount = 90000;
     const vertices = new Float32Array(pointCount * 4 * 3);
+    const normals = new Float32Array(pointCount * 4 * 3);
     const colors = new Float32Array(pointCount * 4 * 3);
     const faces = new Uint32Array(pointCount * 2 * 3);
     for (let i = 0; i < pointCount; i++) {
@@ -69,22 +89,35 @@ function main() {
         const l = rand(0.0, Math.pow(f, 1.75));
         const y = 1.0 - 2.0 * Math.pow(l, 1.0);
         const phi = THREE.MathUtils.randFloatSpread(2.0 * Math.PI);
-        const p = pointOnSphere(y, phi);
+        const [p, n] = pointAndNormalOnSphere(y, phi);
 
         const v_base = i * 4;
         const v_offset = v_base * 3;
-        vertices[v_offset + 0] = p[0];
-        vertices[v_offset + 1] = p[1];
-        vertices[v_offset + 2] = p[2];
-        vertices[v_offset + 3] = p[0];
-        vertices[v_offset + 4] = p[1];
-        vertices[v_offset + 5] = p[2];
-        vertices[v_offset + 6] = p[0];
-        vertices[v_offset + 7] = p[1];
-        vertices[v_offset + 8] = p[2];
-        vertices[v_offset + 9] = p[0];
-        vertices[v_offset + 10] = p[1];
-        vertices[v_offset + 11] = p[2];
+        vertices[v_offset + 0]  = p.x;
+        vertices[v_offset + 1]  = p.y;
+        vertices[v_offset + 2]  = p.z;
+        vertices[v_offset + 3]  = p.x;
+        vertices[v_offset + 4]  = p.y;
+        vertices[v_offset + 5]  = p.z;
+        vertices[v_offset + 6]  = p.x;
+        vertices[v_offset + 7]  = p.y;
+        vertices[v_offset + 8]  = p.z;
+        vertices[v_offset + 9]  = p.x;
+        vertices[v_offset + 10] = p.y;
+        vertices[v_offset + 11] = p.z;
+
+        normals[v_offset + 0]  = n.x;
+        normals[v_offset + 1]  = n.y;
+        normals[v_offset + 2]  = n.z;
+        normals[v_offset + 3]  = n.x;
+        normals[v_offset + 4]  = n.y;
+        normals[v_offset + 5]  = n.z;
+        normals[v_offset + 6]  = n.x;
+        normals[v_offset + 7]  = n.y;
+        normals[v_offset + 8]  = n.z;
+        normals[v_offset + 9]  = n.x;
+        normals[v_offset + 10] = n.y;
+        normals[v_offset + 11] = n.z;
 
         const f_offset = i * 2 * 3;
         faces[f_offset + 0] = v_base + 0;
@@ -112,24 +145,34 @@ function main() {
     const geometry = new THREE.BufferGeometry();
     geometry.setIndex(new THREE.BufferAttribute(faces, 1));
     geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
+    geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
     geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
 
     const material = new THREE.ShaderMaterial({
         uniforms: {
             pointRadius: { value: 0.003 },
-            borderColor: {value: new THREE.Vector3(26/255, 24/255, 21/255) }
+            borderColor: {value: new THREE.Vector3(26/255, 24/255, 21/255) },
+            bgColor: {value: new THREE.Vector3(250/255, 247/255, 242/255) },
+            light: {value: new THREE.Vector3(2.5, 2.5, 0.0) }
         },
         vertexShader: `
         uniform float pointRadius;
+        uniform vec3 bgColor;
+        uniform vec3 light;
         attribute vec3 color;
         varying vec2 v_uv;
         varying vec3 v_color;
         void main() {
-            int v_i = gl_VertexID % 4;
-            v_uv = vec2((v_i == 0 || v_i == 3) ? -1.0 : 1.0, (v_i <= 1) ? -1.0 : 1.0);
-            vec4 mv_p = modelViewMatrix * vec4(position, 1.0) + vec4(pointRadius * v_uv, 0.0, 0.0);
-            gl_Position = projectionMatrix * mv_p;
-            v_color = color;
+            int vertexId = gl_VertexID % 4;
+            v_uv = vec2((vertexId == 0 || vertexId == 3) ? -1.0 : 1.0, (vertexId <= 1) ? -1.0 : 1.0);
+
+            vec3 p = vec3(modelViewMatrix * vec4(position, 1.0));
+            vec3 lightDir = normalize(vec3(viewMatrix * vec4(light, 1.0)) - p);
+            vec3 n = normalize(normalMatrix * normal);
+            float lightIntensity = 0.5 * (dot(n, lightDir) + 1.0);
+            v_color = mix(color, bgColor, lightIntensity);
+
+            gl_Position = projectionMatrix * vec4(p + vec3(pointRadius * v_uv, 0.0), 1.0);
         }`,
         fragmentShader: `
         uniform vec3 borderColor;
@@ -140,6 +183,7 @@ function main() {
             if(sd > 1.0) {
                 discard;
             }
+
             gl_FragColor = vec4(mix(v_color, borderColor, sd * sd * sd), 1.0);
         }`
     });
