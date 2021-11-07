@@ -1,7 +1,5 @@
 import * as THREE from "./three.module.js";
-import SimplexNoise from "./simplex-noise.js";
-
-const simplex = new SimplexNoise("seeeeed");
+import "./p5.min.js";
 
 // https://newbedev.com/seeding-the-random-number-generator-in-javascript
 function mulberry32(a) {
@@ -19,26 +17,22 @@ function rand(a, b) {
     return (b - a) * mulberry32Instance() + a;
 }
 
-function noise(x, y, z) {
-    const falloff = 0.5;
-    const octaves = 4;
-    let r = 0;
-    let amp = 1.0;
-    for (let i = 0; i < octaves; i++) {
-        amp *= falloff;
-        r += amp * (0.5 * simplex.noise3D(x / amp, y / amp, z / amp) + 0.5);
-    }
-    return r;
-}
+let myp5 = new p5(( sketch ) => {
+    sketch.setup = () => {
+        sketch.noiseSeed(425960);
+        sketch.noiseDetail(4, 0.5);
+    };
+});
+myp5.setup();
 
 function pointOnSphere(y, phi) {
     const r = Math.sqrt(1.0 - y*y);
     const x = r * Math.cos(phi);
     const z = r * Math.sin(phi);
-    let noiseC     = 101.0;
-    let noiseScale = 1.7;
-    let noiseMag   = 0.09;
-    const m = noiseMag * (2.0 * noise(noiseScale * (x + noiseC), noiseScale * (y + noiseC), noiseScale * (z + noiseC)) - 1.0) + 1.0;
+    const noiseC     = 5.48;
+    const noiseScale = 3.83;
+    const noiseMag   = 0.13;
+    const m = noiseMag * (2.0 * myp5.noise(noiseScale * (x + noiseC), noiseScale * (y + noiseC), noiseScale * (z + noiseC)) - 1.0) + 1.0;
     return new THREE.Vector3(m * x, m * y, m * z);
 }
 
