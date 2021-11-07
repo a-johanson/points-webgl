@@ -137,11 +137,11 @@ function main() {
     const material = new THREE.ShaderMaterial({
         uniforms: {
             pointRadius: { value: 0.003 },
-            borderColor: { value: fgColor.map(v => v / 255.0) },
+            shadowColor: { value: fgColor.map(v => v / 255.0) },
             bgColor: {value: bgColor.map(v => v / 255.0) },
             colorCount: { value: fgColors.length },
             colors: { value: fgColors.flat().map(v => v / 255.0) },
-            light: {value: new THREE.Vector3(2.5, 2.5, 0.0) }
+            light: {value: new THREE.Vector3(0.0, 0.0, 100.0) }
         },
         vertexShader: `
         uniform float pointRadius;
@@ -151,35 +151,40 @@ function main() {
         uniform vec3 light;
         varying vec2 v_uv;
         varying vec3 v_color;
+        varying vec3 lightDir;
+
         void main() {
             int vertexId = gl_VertexID % 4;
             v_uv = vec2((vertexId == 0 || vertexId == 3) ? -1.0 : 1.0, (vertexId <= 1) ? -1.0 : 1.0);
 
-            vec3 p = vec3(modelViewMatrix * vec4(position, 1.0));
-            vec3 lightDir = normalize(vec3(viewMatrix * vec4(light, 1.0)) - p);
-            vec3 n = normalize(normalMatrix * normal);
-            float lightIntensity = 0.5 * (dot(n, lightDir) + 1.0);
             int colorId = (gl_VertexID / 4) % colorCount;
-            v_color = mix(colors[colorId], bgColor, lightIntensity);
+            v_color = colors[colorId];
 
-            gl_Position = projectionMatrix * vec4(p + vec3(pointRadius * v_uv, 0.0), 1.0);
+            vec3 p = vec3(modelViewMatrix * vec4(position, 1.0)) + vec3(pointRadius * v_uv, 0.0);
+            lightDir = vec3(viewMatrix * vec4(light, 1.0)) - p;
+            gl_Position = projectionMatrix * vec4(p, 1.0);
         }`,
         fragmentShader: `
-        uniform vec3 borderColor;
+        uniform vec3 shadowColor;
         varying vec2 v_uv;
         varying vec3 v_color;
+        varying vec3 lightDir;
+
         void main() {
             float sd = dot(v_uv, v_uv);
             if(sd > 1.0) {
                 discard;
             }
 
-            gl_FragColor = vec4(mix(v_color, borderColor, sd * sd * sd), 1.0);
+            vec3 n = vec3(v_uv, sqrt(1.0 - sd));
+            float illuminance = max(dot(normalize(lightDir), n), 0.0);
+            vec3 luminance = mix(shadowColor, v_color, 1.0 - pow(1.0 - illuminance, 2.5));
+            gl_FragColor = vec4(luminance, 1.0);
         }`
     });
 
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.rotation.y = THREE.MathUtils.degToRad(30.0);
+    mesh.rotation.y = THREE.MathUtils.degToRad(35.0);
     mesh.rotation.z = THREE.MathUtils.degToRad(135.0);
 
     scene.add(mesh);
@@ -187,7 +192,7 @@ function main() {
     function render(time) {
         time *= 0.001;  // convert time to seconds
 
-        mesh.rotation.y += 0.001;
+        mesh.rotation.y += 0.0001;
 
         renderer.render(scene, camera);
         requestAnimationFrame(render);
