@@ -19,10 +19,11 @@ function rand(a, b) {
 
 let myp5 = new p5(( sketch ) => {
     sketch.setup = () => {
+        sketch.noCanvas();
         sketch.noiseSeed(425960);
         sketch.noiseDetail(4, 0.5);
     };
-});
+}, document.body);
 myp5.setup();
 
 function pointOnSphere(y, phi) {
