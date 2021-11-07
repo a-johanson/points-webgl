@@ -57,6 +57,8 @@ function main() {
     renderer.setSize(width, height);
     renderer.setClearColor(0xFAF7F2);
 
+    const bgColor = [250, 247, 242];
+    const fgColor = [26, 24, 21];
     const fgColors = [
         [255,119,119],
         [162,65,107],
@@ -81,7 +83,6 @@ function main() {
     const pointCount = 90000;
     const vertices = new Float32Array(pointCount * 4 * 3);
     const normals = new Float32Array(pointCount * 4 * 3);
-    const colors = new Float32Array(pointCount * 4 * 3);
     const faces = new Uint32Array(pointCount * 2 * 3);
     for (let i = 0; i < pointCount; i++) {
         const s = 0.01 * pointCount;
@@ -126,40 +127,28 @@ function main() {
         faces[f_offset + 3] = v_base + 0;
         faces[f_offset + 4] = v_base + 2;
         faces[f_offset + 5] = v_base + 3;
-
-        const color = fgColors[Math.floor(Math.random() * fgColors.length)];
-        colors[v_offset + 0] =  color[0] / 255.0;
-        colors[v_offset + 1] =  color[1] / 255.0;
-        colors[v_offset + 2] =  color[2] / 255.0;
-        colors[v_offset + 3] =  color[0] / 255.0;
-        colors[v_offset + 4] =  color[1] / 255.0;
-        colors[v_offset + 5] =  color[2] / 255.0;
-        colors[v_offset + 6] =  color[0] / 255.0;
-        colors[v_offset + 7] =  color[1] / 255.0;
-        colors[v_offset + 8] =  color[2] / 255.0;
-        colors[v_offset + 9] =  color[0] / 255.0;
-        colors[v_offset + 10] = color[1] / 255.0;
-        colors[v_offset + 11] = color[2] / 255.0;
     }
 
     const geometry = new THREE.BufferGeometry();
     geometry.setIndex(new THREE.BufferAttribute(faces, 1));
     geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
     geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
-    geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
 
     const material = new THREE.ShaderMaterial({
         uniforms: {
             pointRadius: { value: 0.003 },
-            borderColor: {value: new THREE.Vector3(26/255, 24/255, 21/255) },
-            bgColor: {value: new THREE.Vector3(250/255, 247/255, 242/255) },
+            borderColor: { value: fgColor.map(v => v / 255.0) },
+            bgColor: {value: bgColor.map(v => v / 255.0) },
+            colorCount: { value: fgColors.length },
+            colors: { value: fgColors.flat().map(v => v / 255.0) },
             light: {value: new THREE.Vector3(2.5, 2.5, 0.0) }
         },
         vertexShader: `
         uniform float pointRadius;
         uniform vec3 bgColor;
+        uniform vec3 colors[8];
+        uniform int colorCount;
         uniform vec3 light;
-        attribute vec3 color;
         varying vec2 v_uv;
         varying vec3 v_color;
         void main() {
@@ -170,7 +159,8 @@ function main() {
             vec3 lightDir = normalize(vec3(viewMatrix * vec4(light, 1.0)) - p);
             vec3 n = normalize(normalMatrix * normal);
             float lightIntensity = 0.5 * (dot(n, lightDir) + 1.0);
-            v_color = mix(color, bgColor, lightIntensity);
+            int colorId = (gl_VertexID / 4) % colorCount;
+            v_color = mix(colors[colorId], bgColor, lightIntensity);
 
             gl_Position = projectionMatrix * vec4(p + vec3(pointRadius * v_uv, 0.0), 1.0);
         }`,
