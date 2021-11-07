@@ -13,7 +13,7 @@ function mulberry32(a) {
     }
 }
 
-var mulberry32Instance = mulberry32(0x91FAF7F2);
+var mulberry32Instance = mulberry32(0x91FAC742);
 
 function rand(a, b) {
     return (b - a) * mulberry32Instance() + a;
@@ -35,34 +35,15 @@ function pointOnSphere(y, phi) {
     const r = Math.sqrt(1.0 - y*y);
     const x = r * Math.cos(phi);
     const z = r * Math.sin(phi);
-    let noiseC     = 100.0;
-    let noiseScale = 3.83 * 0.5;
-    let noiseMag   = 0.1;
+    let noiseC     = 101.0;
+    let noiseScale = 1.7;
+    let noiseMag   = 0.09;
     const m = noiseMag * (2.0 * noise(noiseScale * (x + noiseC), noiseScale * (y + noiseC), noiseScale * (z + noiseC)) - 1.0) + 1.0;
     return new THREE.Vector3(m * x, m * y, m * z);
 }
 
-function sgn(x) {
-    return x < 0.0 ? -1.0 : 1.0;
-}
-
-function pointAndNormalOnSphere(y, phi) {
-    const p0 = pointOnSphere(y, phi);
-    const eps = 0.001;
-    let p1 = pointOnSphere(y - sgn(y) * eps, phi);
-    let p2 = pointOnSphere(y, phi + eps);
-    p1.sub(p0);
-    p2.sub(p0);
-    p1.cross(p2);
-    p1.normalize();
-    if(p1.dot(p0) < 0.0) {
-        p1.negate();
-    }
-    return [p0, p1];
-}
-
 function main() {
-    const width = 900;
+    const width = 600;
     const height = 900;
     const canvas = document.querySelector("#c");
     const renderer = new THREE.WebGLRenderer({canvas: canvas, alpha: false, antialias: false});
@@ -87,14 +68,13 @@ function main() {
     const far = 100;
     const camera = new THREE.PerspectiveCamera(fov, width / height, near, far);
     camera.position.y = -0.8;
-    camera.position.z = 0.6;
-    camera.lookAt(0, -0.5, 0);
+    camera.position.z = 0.625;
+    camera.lookAt(0, -0.3, 0);
 
     const scene = new THREE.Scene();
 
     const pointCount = 90000;
     const vertices = new Float32Array(pointCount * 4 * 3);
-    const normals = new Float32Array(pointCount * 4 * 3);
     const faces = new Uint32Array(pointCount * 2 * 3);
     for (let i = 0; i < pointCount; i++) {
         const s = 0.01 * pointCount;
@@ -102,7 +82,7 @@ function main() {
         const l = rand(0.0, Math.pow(f, 1.75));
         const y = 1.0 - 2.0 * Math.pow(l, 1.0);
         const phi = rand(0.0, 2.0 * Math.PI);
-        const [p, n] = pointAndNormalOnSphere(y, phi);
+        const p = pointOnSphere(y, phi);
 
         const v_base = i * 4;
         const v_offset = v_base * 3;
@@ -119,19 +99,6 @@ function main() {
         vertices[v_offset + 10] = p.y;
         vertices[v_offset + 11] = p.z;
 
-        normals[v_offset + 0]  = n.x;
-        normals[v_offset + 1]  = n.y;
-        normals[v_offset + 2]  = n.z;
-        normals[v_offset + 3]  = n.x;
-        normals[v_offset + 4]  = n.y;
-        normals[v_offset + 5]  = n.z;
-        normals[v_offset + 6]  = n.x;
-        normals[v_offset + 7]  = n.y;
-        normals[v_offset + 8]  = n.z;
-        normals[v_offset + 9]  = n.x;
-        normals[v_offset + 10] = n.y;
-        normals[v_offset + 11] = n.z;
-
         const f_offset = i * 2 * 3;
         faces[f_offset + 0] = v_base + 0;
         faces[f_offset + 1] = v_base + 1;
@@ -144,7 +111,6 @@ function main() {
     const geometry = new THREE.BufferGeometry();
     geometry.setIndex(new THREE.BufferAttribute(faces, 1));
     geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
-    geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
 
     const material = new THREE.ShaderMaterial({
         uniforms: {
@@ -196,21 +162,24 @@ function main() {
     });
 
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.rotation.y = THREE.MathUtils.degToRad(35.0);
-    mesh.rotation.z = THREE.MathUtils.degToRad(135.0);
+    mesh.rotation.y = THREE.MathUtils.degToRad(227.0);
+    mesh.rotation.z = THREE.MathUtils.degToRad(145.0);
 
     scene.add(mesh);
+
+    // renderer.render(scene, camera);
 
     function render(time) {
         time *= 0.001;  // convert time to seconds
 
         mesh.rotation.y += 0.0001;
+        // camera.position.z -= 0.00005;
+        // console.log(mesh.rotation.y * (180 / Math.PI));
 
         renderer.render(scene, camera);
         requestAnimationFrame(render);
     }
     requestAnimationFrame(render);
-
 }
 
 main();
