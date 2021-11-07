@@ -3,8 +3,20 @@ import SimplexNoise from "./simplex-noise.js";
 
 const simplex = new SimplexNoise("seeeeed");
 
+// https://newbedev.com/seeding-the-random-number-generator-in-javascript
+function mulberry32(a) {
+    return function() {
+      var t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+}
+
+var mulberry32Instance = mulberry32(0x91FAF7F2);
+
 function rand(a, b) {
-    return (b - a) * Math.random() + a;
+    return (b - a) * mulberry32Instance() + a;
 }
 
 function noise(x, y, z) {
@@ -89,7 +101,7 @@ function main() {
         const f = (i + s) / (pointCount + s);
         const l = rand(0.0, Math.pow(f, 1.75));
         const y = 1.0 - 2.0 * Math.pow(l, 1.0);
-        const phi = THREE.MathUtils.randFloatSpread(2.0 * Math.PI);
+        const phi = rand(0.0, 2.0 * Math.PI);
         const [p, n] = pointAndNormalOnSphere(y, phi);
 
         const v_base = i * 4;
