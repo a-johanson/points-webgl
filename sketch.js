@@ -43,10 +43,10 @@ function main() {
     const canvas = document.querySelector("#c");
     const renderer = new THREE.WebGLRenderer({canvas: canvas, alpha: false, antialias: false});
     renderer.setSize(width, height);
-    renderer.setClearColor(0xFAF7F2);
 
     const bgColor = [250, 247, 242];
-    const fgColor = [26, 24, 21];
+    // const fgColor = [26, 24, 21];
+    renderer.setClearColor("rgb("+bgColor[0]+","+bgColor[1]+","+bgColor[2]+")");
     const fgColors = [
         [255,119,119],
         [162,65,107],
@@ -110,7 +110,6 @@ function main() {
     const material = new THREE.ShaderMaterial({
         uniforms: {
             pointRadius: { value: 0.003 },
-            shadowColor: { value: fgColor.map(v => v / 255.0) },
             bgColor: {value: bgColor.map(v => v / 255.0) },
             colorCount: { value: fgColors.length },
             colors: { value: fgColors.flat().map(v => v / 255.0) },
@@ -138,7 +137,6 @@ function main() {
             gl_Position = projectionMatrix * vec4(p, 1.0);
         }`,
         fragmentShader: `
-        uniform vec3 shadowColor;
         varying vec2 v_uv;
         varying vec3 v_color;
         varying vec3 lightDir;
@@ -151,7 +149,7 @@ function main() {
 
             vec3 n = vec3(v_uv, sqrt(1.0 - sd));
             float illuminance = max(dot(normalize(lightDir), n), 0.0);
-            vec3 luminance = mix(shadowColor, v_color, 1.0 - pow(1.0 - illuminance, 2.5));
+            vec3 luminance = mix(vec3(0.3, 0.3, 0.4) * v_color, v_color, 1.0 - pow(1.0 - illuminance, 2.5));
             gl_FragColor = vec4(luminance, 1.0);
         }`
     });
