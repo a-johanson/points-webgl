@@ -38,8 +38,8 @@ function pointOnSphere(y, phi) {
 }
 
 function main() {
-    const width = 600;
-    const height = 900;
+    const width = 900;
+    const height = 600;
     const canvas = document.querySelector("#c");
     const renderer = new THREE.WebGLRenderer({canvas: canvas, alpha: false, antialias: false});
     renderer.setSize(width, height);
@@ -58,13 +58,13 @@ function main() {
         [250,209,5]
     ];
 
-    const fov = 100;
+    const fov = 90;
     const near = 0.0075;
     const far = 100;
     const camera = new THREE.PerspectiveCamera(fov, width / height, near, far);
-    camera.position.y = -0.8;
-    camera.position.z = 0.625;
-    camera.lookAt(0, -0.3, 0);
+    camera.position.y = 0;
+    camera.position.z = 1.5;
+    camera.lookAt(0, 0, 0);
 
     const scene = new THREE.Scene();
 
@@ -162,13 +162,41 @@ function main() {
 
     scene.add(mesh);
 
+    var pressedKeys = {};
+    window.onkeydown = function(e) { pressedKeys[e.key] = true; }
+    window.onkeyup = function(e) { pressedKeys[e.key] = false; }
+
+    var yaw = 0.0;
+    var pitch = 0.0;
+    var last_t = 0.0;
+
     // renderer.render(scene, camera);
 
     function render(time) {
         time *= 0.001;  // convert time to seconds
+        const delta_t = time - last_t;
+        last_t = time;
 
-        mesh.rotation.y += 0.0001;
-        // camera.position.z -= 0.00005;
+        const angle_incr = delta_t * 0.5 * Math.PI;
+        if (pressedKeys["ArrowLeft"]) { yaw += angle_incr; }
+        if (pressedKeys["ArrowRight"]) { yaw -= angle_incr; }
+        if (pressedKeys["w"] && pitch < 0.45 * Math.PI) { pitch += angle_incr; }
+        if (pressedKeys["s"] && pitch > -0.45 * Math.PI) { pitch -= angle_incr; }
+
+        var look_at_direction = new THREE.Vector3(Math.sin(-yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(-yaw) * Math.cos(pitch));
+
+        const movement_incr = 0.5 * delta_t;
+        if (pressedKeys["ArrowUp"]) { camera.position.addScaledVector(look_at_direction, movement_incr); }
+        if (pressedKeys["ArrowDown"]) { camera.position.addScaledVector(look_at_direction, -movement_incr); }
+        if (pressedKeys["a"]) { camera.position.addScaledVector(new THREE.Vector3().crossVectors(look_at_direction, camera.up).normalize(), -movement_incr); }
+        if (pressedKeys["d"]) { camera.position.addScaledVector(new THREE.Vector3().crossVectors(look_at_direction, camera.up).normalize(), movement_incr); }
+        if (pressedKeys["q"]) { camera.position.add(new THREE.Vector3(0.0, movement_incr, 0.0)); }
+        if (pressedKeys["z"]) { camera.position.add(new THREE.Vector3(0.0, -movement_incr, 0.0)); }
+
+        camera.lookAt(look_at_direction.add(camera.position));
+
+        // mesh.rotation.y += 0.0001;
+        //  camera.position.z += 0.001;
         // console.log(mesh.rotation.y * (180 / Math.PI));
 
         renderer.render(scene, camera);
